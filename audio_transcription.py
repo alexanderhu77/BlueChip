@@ -3,6 +3,10 @@ import os
 # Fix ffmpeg path
 os.environ["PATH"] += os.pathsep + r"C:\ffmpeg\bin"
 
+"""
+Must download ffmpeg and whisper and add them to your PATH.
+"""
+
 import whisper
 
 # Transcribe with Whisper
