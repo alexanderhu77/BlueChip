@@ -193,7 +193,7 @@ function Knob({ label, value, setValue, min, max }) {
   );
 }
 
-// 🧠 New Moving Realistic EKG Line
+// EKG Line Plotting
 function EKGLine({ heartRate }) {
   const [points, setPoints] = useState(generateFlatline());
   const [lastBeatTime, setLastBeatTime] = useState(Date.now());
