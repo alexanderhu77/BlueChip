@@ -108,8 +108,8 @@ def send_push_notification(message):
     EMAIL_RECEIVERS = os.getenv("EMAIL_RECEIVERS", "").strip().strip()
     EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD", "").strip()
 
-    subject = "Email Subject"
-    body = "This is the body of the text message 2"
+    subject = "ALERT: Abnormal Vitals Detected"
+    body = f"ALERT: {message}"
     sender = EMAIL_SENDER
     receivers = [email.strip() for email in EMAIL_RECEIVERS.split(',')]
     password = EMAIL_PASSWORD
