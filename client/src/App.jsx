@@ -6,23 +6,26 @@ function App() {
   const [bpDia, setBpDia] = useState(60);
   const [bpSys, setBpSys] = useState(90);
 
-  const [gain, setGain] = useState(50);
-  const [brightness, setBrightness] = useState(50);
-  const [contrast, setContrast] = useState(50);
+  const [spo2, setSpo2] = useState(98);
+  const [temperature, setTemperature] = useState(37);
+  const [respiratoryRate, setRespiratoryRate] = useState(16);
 
   useEffect(() => {
     const interval = setInterval(() => {
       sendVitalSigns();
     }, 1000);
     return () => clearInterval(interval);
-  }, [heartRate, bpDia, bpSys]);
+  }, [heartRate, bpDia, bpSys, spo2, temperature, respiratoryRate]);
 
   const sendVitalSigns = async () => {
     try {
       await axios.post('http://localhost:5000/vital-signs', {
         heartRate,
         bpDia,
-        bpSys
+        bpSys,
+        spo2,
+        temperature,
+        respiratoryRate,
       }, {
         headers: {
           'Content-Type': 'application/json'
@@ -32,8 +35,6 @@ function App() {
       console.error('Failed to send vital signs:', error.response ? error.response.data : error.message);
     }
   };
-
-  const beatSpeedMs = heartRate > 0 ? (60000 / heartRate) : 1000;
 
   return (
     <div style={{
@@ -95,9 +96,10 @@ function App() {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            padding: '10px'
+            padding: '10px',
+            overflow: 'hidden'
           }}>
-            <EKGLine beatSpeedMs={beatSpeedMs} heartRate={heartRate} />
+            <EKGLine heartRate={heartRate} />
           </div>
 
           {/* Patient Monitor Section */}
@@ -115,9 +117,9 @@ function App() {
             <h3>Patient Monitor</h3>
             <div>❤️ HR: {heartRate} bpm</div>
             <div>🩸 BP: {bpSys}/{bpDia} mmHg</div>
-            <div>📶 Gain: {gain}</div>
-            <div>☀️ Brightness: {brightness}</div>
-            <div>🌓 Contrast: {contrast}</div>
+            <div>🫁 SpO₂: {spo2}%</div>
+            <div>🌡️ Temp: {temperature}°C</div>
+            <div>💨 RR: {respiratoryRate} bpm</div>
           </div>
         </div>
 
@@ -134,9 +136,9 @@ function App() {
           flexWrap: 'wrap',
           gap: '40px',
         }}>
-          <Knob label="Gain" value={gain} setValue={setGain} />
-          <Knob label="Brightness" value={brightness} setValue={setBrightness} />
-          <Knob label="Contrast" value={contrast} setValue={setContrast} />
+          <Knob label="SpO₂" value={spo2} setValue={setSpo2} min={50} max={100} />
+          <Knob label="Temperature" value={temperature} setValue={setTemperature} min={30} max={42} />
+          <Knob label="Respiratory Rate" value={respiratoryRate} setValue={setRespiratoryRate} min={5} max={50} />
         </div>
 
       </div>
@@ -144,7 +146,7 @@ function App() {
   );
 }
 
-// Small components
+// --------- Components ---------------
 function Slider({ label, value, setValue, min, max }) {
   return (
     <div style={{ textAlign: 'center' }}>
@@ -166,14 +168,14 @@ function Slider({ label, value, setValue, min, max }) {
   );
 }
 
-function Knob({ label, value, setValue }) {
+function Knob({ label, value, setValue, min, max }) {
   return (
     <div style={{ textAlign: 'center' }}>
       <label>{label}</label>
       <input
         type="range"
-        min="0"
-        max="100"
+        min={min}
+        max={max}
         value={value}
         onChange={(e) => setValue(Number(e.target.value))}
         style={{
@@ -188,30 +190,87 @@ function Knob({ label, value, setValue }) {
   );
 }
 
-function EKGLine({ beatSpeedMs, heartRate }) {
-  const [beat, setBeat] = useState(false);
+function EKGLine({ heartRate }) {
+  const [points, setPoints] = useState(generateFlatline());
+  const [lastBeatTime, setLastBeatTime] = useState(Date.now());
 
   useEffect(() => {
-    if (heartRate > 0) {
-      const interval = setInterval(() => {
-        setBeat(prev => !prev);
-      }, beatSpeedMs);
-      return () => clearInterval(interval);
-    } else {
-      setBeat(false);
-    }
-  }, [beatSpeedMs, heartRate]);
+    const interval = setInterval(() => {
+      const now = Date.now();
+      let newPoints = points.map(([x, y]) => [x - 5, y]).filter(([x]) => x >= 0); // move left
+
+      const beatInterval = heartRate > 0 ? (60000 / heartRate) : Infinity; // ms per beat
+
+      if (now - lastBeatTime >= beatInterval && heartRate > 0) {
+        // Insert a PQRST waveform
+        const pqrst = generatePQRST();
+        newPoints = newPoints.concat(pqrst.map(([x, y]) => [x + 1000, y]));
+        setLastBeatTime(now);
+      } else {
+        // Add flatline point
+        newPoints.push([1000, 50]);
+      }
+
+      setPoints(newPoints);
+    }, 50); // update every 50ms
+
+    return () => clearInterval(interval);
+  }, [heartRate, points, lastBeatTime]);
 
   return (
     <svg width="100%" height="100">
       <polyline
-        points={beat ? "0,50 50,50 70,20 90,80 110,50 1000,50" : "0,50 1000,50"}
+        points={points.map(([x, y]) => `${x},${y}`).join(' ')}
         stroke="#00FF00"
         strokeWidth="2"
         fill="none"
       />
     </svg>
   );
+}
+
+// Generate a realistic PQRST waveform
+function generatePQRST() {
+  return [
+    [0, 50],   // baseline before P
+    [10, 45],  // P wave up
+    [20, 50],  // back to baseline
+    [30, 55],  // small bump before Q
+    [40, 30],  // Q dip
+    [50, 80],  // R peak
+    [60, 20],  // S dip
+    [70, 50],  // return to baseline
+    [80, 60],  // T wave up
+    [90, 50],  // back to baseline after T
+  ];
+}
+
+// Generate a flatline (initial points)
+function generateFlatline() {
+  const pts = [];
+  for (let i = 0; i < 200; i++) {
+    pts.push([i * 5, 50]);
+  }
+  return pts;
+}
+
+function shiftPoints(points, shouldSpike) {
+  const newPoints = points.map(([x, y]) => [x - 10, y]).filter(([x]) => x >= 0);
+
+  if (shouldSpike) {
+    const random = Math.random();
+    if (random < 0.05) {
+      newPoints.push([1000, 20]); // spike up
+    } else if (random < 0.1) {
+      newPoints.push([1000, 80]); // spike down
+    } else {
+      newPoints.push([1000, 50]); // flat
+    }
+  } else {
+    newPoints.push([1000, 50]); // always flat if no heart rate
+  }
+
+  return newPoints;
 }
 
 export default App;
