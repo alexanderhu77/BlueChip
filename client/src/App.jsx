@@ -43,6 +43,8 @@ function App() {
       minHeight: '100vh',
       backgroundColor: '#000000',
       color: '#00FF00',
+      fontFamily: 'Arial, sans-serif',
+      fontWeight: 'bold',
     }}>
       
       {/* Left Sidebar */}
@@ -55,7 +57,7 @@ function App() {
         padding: '20px',
         borderRight: '2px solid #00FF00',
       }}>
-        <h2>Vitals</h2>
+        <h2 style={{ fontSize: '2rem', marginBottom: '20px' }}>Vitals</h2>
         <div style={{
           display: 'flex',
           flexDirection: 'row',
@@ -112,9 +114,10 @@ function App() {
             flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'space-around',
-            padding: '20px'
+            padding: '20px',
+            fontSize: '1.3rem'
           }}>
-            <h3>Patient Monitor</h3>
+            <h3 style={{ fontSize: '1.8rem' }}>Patient Monitor</h3>
             <div>❤️ HR: {heartRate} bpm</div>
             <div>🩸 BP: {bpSys}/{bpDia} mmHg</div>
             <div>🫁 SpO₂: {spo2}%</div>
@@ -163,7 +166,7 @@ function Slider({ label, value, setValue, min, max }) {
           accentColor: '#00FF00',
         }}
       />
-      <div style={{ marginTop: '10px' }}>{label}: {value}</div>
+      <div style={{ marginTop: '10px', fontSize: '1.2rem' }}>{label}: {value}</div>
     </div>
   );
 }
@@ -171,7 +174,7 @@ function Slider({ label, value, setValue, min, max }) {
 function Knob({ label, value, setValue, min, max }) {
   return (
     <div style={{ textAlign: 'center' }}>
-      <label>{label}</label>
+      <label style={{ fontSize: '1.2rem' }}>{label}</label>
       <input
         type="range"
         min={min}
@@ -185,11 +188,12 @@ function Knob({ label, value, setValue, min, max }) {
           accentColor: '#00FF00',
         }}
       />
-      <div>{value}</div>
+      <div style={{ fontSize: '1.2rem' }}>{value}</div>
     </div>
   );
 }
 
+// 🧠 New Moving Realistic EKG Line
 function EKGLine({ heartRate }) {
   const [points, setPoints] = useState(generateFlatline());
   const [lastBeatTime, setLastBeatTime] = useState(Date.now());
@@ -197,22 +201,20 @@ function EKGLine({ heartRate }) {
   useEffect(() => {
     const interval = setInterval(() => {
       const now = Date.now();
-      let newPoints = points.map(([x, y]) => [x - 5, y]).filter(([x]) => x >= 0); // move left
+      let newPoints = points.map(([x, y]) => [x - 5, y]).filter(([x]) => x >= 0);
 
-      const beatInterval = heartRate > 0 ? (60000 / heartRate) : Infinity; // ms per beat
+      const beatInterval = heartRate > 0 ? (60000 / heartRate) : Infinity;
 
       if (now - lastBeatTime >= beatInterval && heartRate > 0) {
-        // Insert a PQRST waveform
-        const pqrst = generatePQRST();
+        const pqrst = generatePQRST(heartRate);
         newPoints = newPoints.concat(pqrst.map(([x, y]) => [x + 1000, y]));
         setLastBeatTime(now);
       } else {
-        // Add flatline point
         newPoints.push([1000, 50]);
       }
 
       setPoints(newPoints);
-    }, 50); // update every 50ms
+    }, 50);
 
     return () => clearInterval(interval);
   }, [heartRate, points, lastBeatTime]);
@@ -229,48 +231,31 @@ function EKGLine({ heartRate }) {
   );
 }
 
-// Generate a realistic PQRST waveform
-function generatePQRST() {
+// Realistic PQRST waveform with dynamic R amplitude
+function generatePQRST(heartRate) {
+  const rPeak = Math.min(80 + (heartRate - 60) * 0.5, 110); // cap max
+
   return [
-    [0, 50],   // baseline before P
+    [0, 50],   // baseline
     [10, 45],  // P wave up
     [20, 50],  // back to baseline
     [30, 55],  // small bump before Q
     [40, 30],  // Q dip
-    [50, 80],  // R peak
+    [50, rPeak],  // dynamic R peak
     [60, 20],  // S dip
-    [70, 50],  // return to baseline
-    [80, 60],  // T wave up
-    [90, 50],  // back to baseline after T
+    [70, 50],  // baseline
+    [80, 60],  // T wave
+    [90, 50],  // baseline after T
   ];
 }
 
-// Generate a flatline (initial points)
+// Initial flatline
 function generateFlatline() {
   const pts = [];
   for (let i = 0; i < 200; i++) {
     pts.push([i * 5, 50]);
   }
   return pts;
-}
-
-function shiftPoints(points, shouldSpike) {
-  const newPoints = points.map(([x, y]) => [x - 10, y]).filter(([x]) => x >= 0);
-
-  if (shouldSpike) {
-    const random = Math.random();
-    if (random < 0.05) {
-      newPoints.push([1000, 20]); // spike up
-    } else if (random < 0.1) {
-      newPoints.push([1000, 80]); // spike down
-    } else {
-      newPoints.push([1000, 50]); // flat
-    }
-  } else {
-    newPoints.push([1000, 50]); // always flat if no heart rate
-  }
-
-  return newPoints;
 }
 
 export default App;
