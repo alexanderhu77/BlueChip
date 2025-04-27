@@ -19,7 +19,7 @@ function App() {
 
   const sendVitalSigns = async () => {
     try {
-      await axios.post('http://localhost:5000/vital-signs', {
+      await axios.post('http://localhost:8000/send-hl7', {
         heartRate,
         bpDia,
         bpSys,
