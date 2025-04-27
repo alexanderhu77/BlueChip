@@ -3,6 +3,8 @@ import urllib3
 import time
 from dotenv import load_dotenv
 import os
+import smtplib
+from email.mime.text import MIMEText
 
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -73,8 +75,18 @@ def get_latest_message():
     print("No HL7 message found in the latest message.")
     return None
 
+def send_email(subject, body, sender, receivers, password):
+    msg = MIMEText(body)
+    msg['Subject'] = subject
+    msg['From'] = sender
+    msg['To'] = ', '.join(receivers)
+    with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp_server:
+       smtp_server.login(sender, password)
+       smtp_server.sendmail(sender, receivers, msg.as_string())
+    print("Message sent!")
 
 def send_push_notification(message):
+    #Will also send email notification with push_notification
     pushover_token = os.getenv('PUSHOVER_TOKEN')
     pushover_user = os.getenv('PUSHOVER_USER')
     
@@ -89,6 +101,20 @@ def send_push_notification(message):
         print("Push notification sent!")
     else:
         print(f"Failed to send notification: {response.text}")
+
+    #Send Email Portion
+
+    EMAIL_SENDER = os.getenv("EMAIL_SENDER", "").strip()
+    EMAIL_RECEIVERS = os.getenv("EMAIL_RECEIVERS", "").strip().strip()
+    EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD", "").strip()
+
+    subject = "Email Subject"
+    body = "This is the body of the text message 2"
+    sender = EMAIL_SENDER
+    receivers = [email.strip() for email in EMAIL_RECEIVERS.split(',')]
+    password = EMAIL_PASSWORD
+
+    send_email(subject, body, sender, receivers, password)
 
 
 
